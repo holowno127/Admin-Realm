@@ -1,0 +1,15 @@
+﻿client/src/pages/event-detail.tsx(145,52): error TS2322: Type '"link"' is not assignable to type '"default" | "destructive" | "outline" | "secondary" | "ghost" | null | undefined'.
+client/src/pages/event-detail.tsx(203,36): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ academico: string; cultural: string; deportivo: string; }'.
+client/src/pages/event-detail.tsx(203,57): error TS2339: Property 'category' does not exist on type 'EventWithStats'.
+client/src/pages/event-detail.tsx(204,18): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ academico: string; cultural: string; deportivo: string; }'.
+client/src/pages/event-detail.tsx(204,39): error TS2339: Property 'category' does not exist on type 'EventWithStats'.
+server/storage.ts(622,25): error TS2339: Property 'category' does not exist on type '{ id: number; title: string; description: string; categories: string[]; eventDate: Date; location: string; imageUrl: string | null; isArchived: boolean; views: number; createdAt: Date; createdBy: number | null; }'.
+shared/schema.ts(196,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+shared/schema.ts(201,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+shared/schema.ts(207,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+shared/schema.ts(212,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+shared/schema.ts(217,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+shared/schema.ts(222,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+shared/schema.ts(227,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+shared/schema.ts(233,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+shared/schema.ts(239,3): error TS2322: Type 'boolean' is not assignable to type 'never'.

@@ -142,7 +142,7 @@ export default function EventDetailPage() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-2">Evento no encontrado</h1>
-          <Button onClick={() => setLocation("/")} variant="link">
+          <Button onClick={() => setLocation("/")} variant="ghost">
             Volver al inicio
           </Button>
         </div>
@@ -200,9 +200,11 @@ export default function EventDetailPage() {
         <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
           <div className="max-w-3xl mx-auto">
             <div className="flex flex-wrap gap-2 mb-3">
-              <Badge className={`${categoryColors[event.category]} border-0`}>
-                {categoryLabels[event.category]}
-              </Badge>
+              {event.categories?.map((cat) => (
+                <Badge key={cat} className={`${categoryColors[cat as keyof typeof categoryColors] || "bg-gray-500/10 text-gray-600 dark:text-gray-400"} border-0`}>
+                  {categoryLabels[cat as keyof typeof categoryLabels] || cat}
+                </Badge>
+              ))}
               {isPast && (
                 <Badge variant="secondary" className="bg-black/50 text-white border-0">
                   Finalizado

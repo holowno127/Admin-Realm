@@ -7,6 +7,12 @@ export const roleEnum = pgEnum("role", ["admin", "student"]);
 export const categoryEnum = pgEnum("category", ["academico", "cultural", "deportivo"]);
 export const notificationTypeEnum = pgEnum("notification_type", ["event_update", "new_comment", "new_follower", "new_message"]);
 
+export const userSessions = pgTable("user_sessions", {
+  sid: varchar("sid", { length: 255 }).primaryKey(),
+  sess: text("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+});
+
 export const users = pgTable("users", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   name: text("name").notNull(),
@@ -32,7 +38,7 @@ export const events = pgTable("events", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   title: text("title").notNull(),
   description: text("description").notNull(),
-  category: categoryEnum("category").notNull(),
+  categories: text("categories").array().notNull().default(sql`'{}'`),
   eventDate: timestamp("event_date").notNull(),
   location: text("location").notNull(),
   imageUrl: text("image_url"),
@@ -186,54 +192,23 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
 }));
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-  createdAt: true,
-});
+export const insertUserSchema = createInsertSchema(users) as unknown as z.ZodType<InsertUser>;
 
-export const insertEventSchema = createInsertSchema(events).omit({
-  id: true,
-  createdAt: true,
-  views: true,
-});
+export const insertEventSchema = createInsertSchema(events) as unknown as z.ZodType<InsertEvent>;
 
-export const insertCommentSchema = createInsertSchema(comments).omit({
-  id: true,
-  createdAt: true,
-});
+export const insertCommentSchema = createInsertSchema(comments) as unknown as z.ZodType<InsertComment>;
 
-export const insertLikeSchema = createInsertSchema(likes).omit({
-  id: true,
-  createdAt: true,
-});
+export const insertLikeSchema = createInsertSchema(likes) as unknown as z.ZodType<InsertLike>;
 
-export const insertAttendanceSchema = createInsertSchema(attendances).omit({
-  id: true,
-  createdAt: true,
-});
+export const insertAttendanceSchema = createInsertSchema(attendances) as unknown as z.ZodType<InsertAttendance>;
 
-export const insertFollowerSchema = createInsertSchema(followers).omit({
-  id: true,
-  createdAt: true,
-});
+export const insertFollowerSchema = createInsertSchema(followers) as unknown as z.ZodType<InsertFollower>;
 
-export const insertChatSchema = createInsertSchema(chats).omit({
-  id: true,
-  createdAt: true,
-  lastMessageAt: true,
-});
+export const insertChatSchema = createInsertSchema(chats) as unknown as z.ZodType<InsertChat>;
 
-export const insertMessageSchema = createInsertSchema(messages).omit({
-  id: true,
-  createdAt: true,
-  isRead: true,
-});
+export const insertMessageSchema = createInsertSchema(messages) as unknown as z.ZodType<InsertMessage>;
 
-export const insertNotificationSchema = createInsertSchema(notifications).omit({
-  id: true,
-  createdAt: true,
-  isRead: true,
-});
+export const insertNotificationSchema = createInsertSchema(notifications) as unknown as z.ZodType<InsertNotification>;
 
 // Login schema
 export const loginSchema = z.object({
@@ -251,23 +226,23 @@ export const createUserSchema = z.object({
 
 // Types
 export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertUser = typeof users.$inferInsert;
 export type Event = typeof events.$inferSelect;
-export type InsertEvent = z.infer<typeof insertEventSchema>;
+export type InsertEvent = typeof events.$inferInsert;
 export type Comment = typeof comments.$inferSelect;
-export type InsertComment = z.infer<typeof insertCommentSchema>;
+export type InsertComment = typeof comments.$inferInsert;
 export type Like = typeof likes.$inferSelect;
-export type InsertLike = z.infer<typeof insertLikeSchema>;
+export type InsertLike = typeof likes.$inferInsert;
 export type Attendance = typeof attendances.$inferSelect;
-export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
+export type InsertAttendance = typeof attendances.$inferInsert;
 export type Follower = typeof followers.$inferSelect;
-export type InsertFollower = z.infer<typeof insertFollowerSchema>;
+export type InsertFollower = typeof followers.$inferInsert;
 export type Chat = typeof chats.$inferSelect;
-export type InsertChat = z.infer<typeof insertChatSchema>;
+export type InsertChat = typeof chats.$inferInsert;
 export type Message = typeof messages.$inferSelect;
-export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type InsertMessage = typeof messages.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
-export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type InsertNotification = typeof notifications.$inferInsert;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
@@ -290,7 +265,7 @@ export type ChatWithUser = Chat & {
   unreadCount: number;
 };
 
-export type UserWithStats = User & {
+export type UserWithStats = Omit<User, "password"> & {
   followersCount: number;
   followingCount: number;
   isFollowing?: boolean;

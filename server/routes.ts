@@ -388,9 +388,17 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/events", requireAdmin, async (req, res) => {
+  app.get("/api/admin/events/:filter?", requireAdmin, async (req, res) => {
     try {
-      const events = await storage.getEvents(undefined, undefined, undefined, true);
+      const filter = req.params.filter || "all";
+      let events = await storage.getEvents(undefined, undefined, undefined, true);
+      
+      if (filter === "active") {
+        events = events.filter(e => !e.isArchived);
+      } else if (filter === "archived") {
+        events = events.filter(e => e.isArchived);
+      }
+      
       res.json(events);
     } catch (error) {
       res.status(500).json({ error: "Error al obtener eventos" });

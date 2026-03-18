@@ -18,7 +18,7 @@ import {
 interface EventMetrics {
   id: number;
   title: string;
-  category: string;
+  categories: string[];
   eventDate: string;
   views: number;
   likes: number;
@@ -134,10 +134,11 @@ export default function AdminMetrics() {
                           {event.title}
                         </h3>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                          <Badge variant="secondary" className="text-xs">
-                            {categoryLabels[event.category] ??
-                              event.category}
-                          </Badge>
+                          {event.categories?.map((cat) => (
+                            <Badge key={cat} variant="secondary" className="text-xs">
+                              {categoryLabels[cat] ?? cat}
+                            </Badge>
+                          ))}
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
                             {format(

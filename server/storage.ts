@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, or, desc, count, sql, ne } from "drizzle-orm";
+import { eq, and, or, desc, count, sql, ne, arrayContains } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import {
   users, events, comments, likes, attendances, followers, chats, messages, notifications,
@@ -64,12 +64,33 @@ export interface IStorage {
     totalEvents: number;
     totalComments: number;
     activeEvents: number;
+    totalLikes: number;
+    totalViews: number;
+    topEvents: Array<{
+      id: number;
+      title: string;
+      likes: number;
+      comments: number;
+      attendees: number;
+    }>;
   }>;
   getMetrics(): Promise<{
-    totalViews: number;
-    totalLikes: number;
-    totalAttendances: number;
-    eventsByCategory: { category: string; count: number }[];
+    events: {
+      id: number;
+      title: string;
+      categories: string[];
+      eventDate: string;
+      views: number;
+      likes: number;
+      comments: number;
+      attendees: number;
+    }[];
+    totals: {
+      views: number;
+      likes: number;
+      comments: number;
+      attendees: number;
+    };
   }>;
 }
 
@@ -124,26 +145,23 @@ export class DatabaseStorage implements IStorage {
 
   async getEvents(category?: string, userId?: number, timeFilter?: string, includeAll?: boolean): Promise<EventWithStats[]> {
     const now = new Date();
-    let whereClause;
-    
-    if (includeAll) {
-      whereClause = category && category !== "all" ? eq(events.category, category as any) : undefined;
-    } else {
-      const notArchived = eq(events.isArchived, false);
-      if (category && category !== "all") {
-        if (timeFilter === "past") {
-          whereClause = and(eq(events.category, category as any), sql`${events.eventDate} < ${now}`, notArchived);
-        } else {
-          whereClause = and(eq(events.category, category as any), sql`${events.eventDate} >= ${now}`, notArchived);
-        }
-      } else {
-        if (timeFilter === "past") {
-          whereClause = and(sql`${events.eventDate} < ${now}`, notArchived);
-        } else {
-          whereClause = and(sql`${events.eventDate} >= ${now}`, notArchived);
-        }
-      }
+    const conditions = [];
+
+    if (category && category !== "all") {
+      conditions.push(arrayContains(events.categories, [category as any]));
     }
+
+    if (!includeAll) {
+      conditions.push(eq(events.isArchived, false));
+    }
+
+    if (timeFilter === "past") {
+      conditions.push(sql`${events.eventDate} < ${now}`);
+    } else if (timeFilter === "upcoming") {
+      conditions.push(sql`${events.eventDate} >= ${now}`);
+    }
+
+    const whereClause = conditions.length > 0 ? (conditions.length === 1 ? conditions[0] : and(...conditions)) : undefined;
     
     const baseEvents = await db.select().from(events)
       .where(whereClause)
@@ -508,42 +526,116 @@ export class DatabaseStorage implements IStorage {
     totalEvents: number;
     totalComments: number;
     activeEvents: number;
+    totalLikes: number;
+    totalViews: number;
+    topEvents: Array<{
+      id: number;
+      title: string;
+      likes: number;
+      comments: number;
+      attendees: number;
+    }>;
   }> {
     const [usersResult] = await db.select({ count: count() }).from(users);
     const [eventsResult] = await db.select({ count: count() }).from(events);
     const [commentsResult] = await db.select({ count: count() }).from(comments);
+    const [likesResult] = await db.select({ count: count() }).from(likes);
+    const [viewsResult] = await db.select({ total: sql<number>`COALESCE(SUM(${events.views}), 0)` }).from(events);
     const [activeEventsResult] = await db.select({ count: count() }).from(events).where(eq(events.isArchived, false));
+
+    const allEvents = await db.select().from(events);
+    const eventsWithStats = await Promise.all(allEvents.map(async (event) => {
+      const [likesRes] = await db.select({ count: count() }).from(likes).where(eq(likes.eventId, event.id));
+      const [commentsRes] = await db.select({ count: count() }).from(comments).where(eq(comments.eventId, event.id));
+      const [attendeesRes] = await db.select({ count: count() }).from(attendances).where(eq(attendances.eventId, event.id));
+      
+      return {
+        id: event.id,
+        title: event.title,
+        likes: likesRes.count,
+        comments: commentsRes.count,
+        attendees: attendeesRes.count,
+        totalInteractions: likesRes.count + commentsRes.count + attendeesRes.count
+      };
+    }));
+
+    // Sort by total interactions and take top 5
+    const topEvents = eventsWithStats
+      .sort((a, b) => b.totalInteractions - a.totalInteractions)
+      .slice(0, 5)
+      .map(({ totalInteractions, ...rest }) => rest);
 
     return {
       totalUsers: usersResult.count,
       totalEvents: eventsResult.count,
       totalComments: commentsResult.count,
       activeEvents: activeEventsResult.count,
+      totalLikes: likesResult.count,
+      totalViews: Number(viewsResult.total) || 0,
+      topEvents,
     };
   }
 
   async getMetrics(): Promise<{
-    totalViews: number;
-    totalLikes: number;
-    totalAttendances: number;
-    eventsByCategory: { category: string; count: number }[];
+    events: {
+      id: number;
+      title: string;
+      categories: string[];
+      eventDate: string;
+      views: number;
+      likes: number;
+      comments: number;
+      attendees: number;
+    }[];
+    totals: {
+      views: number;
+      likes: number;
+      comments: number;
+      attendees: number;
+    };
   }> {
-    const [viewsResult] = await db.select({ total: sql<number>`COALESCE(SUM(${events.views}), 0)` }).from(events);
-    const [likesResult] = await db.select({ count: count() }).from(likes);
-    const [attendancesResult] = await db.select({ count: count() }).from(attendances);
+    const allEvents = await db.select().from(events).orderBy(desc(events.eventDate));
+    
+    let totalViews = 0;
+    let totalLikes = 0;
+    let totalComments = 0;
+    let totalAttendees = 0;
 
-    const categoryResults = await db.select({
-      category: events.category,
-      count: count(),
-    })
-    .from(events)
-    .groupBy(events.category);
+    const eventsWithMetrics = await Promise.all(allEvents.map(async (event) => {
+      const [likesResult] = await db.select({ count: count() }).from(likes).where(eq(likes.eventId, event.id));
+      const [commentsResult] = await db.select({ count: count() }).from(comments).where(eq(comments.eventId, event.id));
+      const [attendeesResult] = await db.select({ count: count() }).from(attendances).where(eq(attendances.eventId, event.id));
+
+      const eventViews = event.views || 0;
+      const eventLikes = likesResult.count;
+      const eventComments = commentsResult.count;
+      const eventAttendees = attendeesResult.count;
+
+      totalViews += eventViews;
+      totalLikes += eventLikes;
+      totalComments += eventComments;
+      totalAttendees += eventAttendees;
+
+      return {
+        id: event.id,
+        title: event.title,
+        categories: event.categories,
+        eventDate: event.eventDate.toISOString(),
+        views: eventViews,
+        likes: eventLikes,
+        comments: eventComments,
+        attendees: eventAttendees,
+      };
+    }));
 
     return {
-      totalViews: Number(viewsResult.total) || 0,
-      totalLikes: likesResult.count,
-      totalAttendances: attendancesResult.count,
-      eventsByCategory: categoryResults.map(r => ({ category: r.category, count: r.count })),
+      events: eventsWithMetrics,
+      totals: {
+        views: totalViews,
+        likes: totalLikes,
+        comments: totalComments,
+        attendees: totalAttendees,
+      }
     };
   }
 }

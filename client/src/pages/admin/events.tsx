@@ -43,7 +43,7 @@ import { Plus, Pencil, Trash2, Archive, ArchiveRestore, Calendar, Loader2 } from
 const eventFormSchema = z.object({
   title: z.string().min(3, "El título debe tener al menos 3 caracteres"),
   description: z.string().min(10, "La descripción debe tener al menos 10 caracteres"),
-  category: z.enum(["academico", "cultural", "deportivo"]),
+  categories: z.array(z.enum(["academico", "cultural", "deportivo"])).min(1, "Selecciona al menos una categoría"),
   eventDate: z.string().min(1, "La fecha es requerida"),
   location: z.string().min(3, "La ubicación debe tener al menos 3 caracteres"),
   imageUrl: z.string().optional(),
@@ -72,7 +72,7 @@ export default function AdminEvents() {
     defaultValues: {
       title: "",
       description: "",
-      category: "academico",
+      categories: ["academico"],
       eventDate: "",
       location: "",
       imageUrl: "",
@@ -141,7 +141,7 @@ export default function AdminEvents() {
     form.reset({
       title: event.title,
       description: event.description,
-      category: event.category,
+      categories: event.categories as ("academico" | "cultural" | "deportivo")[],
       eventDate: format(new Date(event.eventDate), "yyyy-MM-dd'T'HH:mm"),
       location: event.location,
       imageUrl: event.imageUrl || "",
@@ -202,20 +202,31 @@ export default function AdminEvents() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="category">Categoría</Label>
-                    <Select
-                      value={form.watch("category")}
-                      onValueChange={(v) => form.setValue("category", v as "academico" | "cultural" | "deportivo")}
-                    >
-                      <SelectTrigger data-testid="select-category">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="academico">Académico</SelectItem>
-                        <SelectItem value="cultural">Cultural</SelectItem>
-                        <SelectItem value="deportivo">Deportivo</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Categorías</Label>
+                    <div className="flex flex-wrap gap-4">
+                      {["academico", "cultural", "deportivo"].map((cat) => (
+                        <label key={cat} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            value={cat}
+                            checked={form.watch("categories")?.includes(cat as any) || false}
+                            onChange={(e) => {
+                              const current = form.watch("categories") || [];
+                              if (e.target.checked) {
+                                form.setValue("categories", [...current, cat as any]);
+                              } else {
+                                form.setValue("categories", current.filter((c) => c !== cat));
+                              }
+                            }}
+                            className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4"
+                          />
+                          <span className="text-sm">{categoryLabels[cat as keyof typeof categoryLabels]}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {form.formState.errors.categories && (
+                      <p className="text-sm text-destructive">{form.formState.errors.categories.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="eventDate">Fecha y hora</Label>
@@ -281,7 +292,13 @@ export default function AdminEvents() {
                     <TableRow key={event.id} data-testid={`event-row-${event.id}`}>
                       <TableCell className="font-medium max-w-[200px] truncate">{event.title}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{categoryLabels[event.category]}</Badge>
+                        <div className="flex flex-wrap gap-1">
+                          {event.categories?.map((cat) => (
+                            <Badge key={cat} variant="secondary">
+                              {categoryLabels[cat as keyof typeof categoryLabels] || cat}
+                            </Badge>
+                          ))}
+                        </div>
                       </TableCell>
                       <TableCell>{format(new Date(event.eventDate), "d MMM yyyy, HH:mm", { locale: es })}</TableCell>
                       <TableCell>

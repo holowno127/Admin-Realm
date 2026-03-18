@@ -47,9 +47,13 @@ export function EventCard({ event, onLike, onAttend, showActions = true }: Event
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-4">
-            <Badge className={`${categoryColors[event.category]} border-0 mb-2`}>
-              {categoryLabels[event.category]}
-            </Badge>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {event.categories?.map((cat) => (
+                <Badge key={cat} className={`${categoryColors[cat as keyof typeof categoryColors] || "bg-gray-500/10 text-gray-600 dark:text-gray-400"} border-0`}>
+                  {categoryLabels[cat as keyof typeof categoryLabels] || cat}
+                </Badge>
+              ))}
+            </div>
             <h3 className="text-lg font-semibold text-white line-clamp-2">
               {event.title}
             </h3>
